@@ -1,0 +1,739 @@
+<meta charset="utf-8">
+<link href="../api/apps/u5pk2025/mycss.css?7" rel="stylesheet" />
+<!-- <script src="../api/apps/u5pk2025/myJS.js?13"></script> -->
+<script src="../api/apps/u5pk2025/canvasjs.min.js?6"></script>
+<script src="../api/apps/u5pk2025/kendo.all.min.js?3"></script>
+<script src="../api/apps/u5pk2025/kendo-ui-license.js?3"></script>
+<script src="../api/apps/u5pk2025/xlsx.full.min.js?2"></script>
+
+<script>
+    const myVar = setInterval(expandReportLayout, 1000);
+    function expandReportLayout() {
+        if (parent.document.getElementById("dhis2-app-root")) {
+            parent.document.getElementById(
+                "dhis2-app-root"
+            ).children[0].children[1].children[0].children[0].children[0].children[0].children[0].children[0].style.width =
+                "100%";
+            myStopFunction();
+        }
+    }
+
+    function myStopFunction() {
+        clearInterval(myVar);
+    }
+
+    jQuery(document).ready(function () {
+
+        expandReportLayout();
+        onClick();
+        $("#loadingM").show();
+
+        $("#myDataTable").hide();
+        $("#showMyChart").hide();
+
+        loadOrg();
+        $("#getData_").click(function () {
+            if (validateSelection() == 1) {
+                //load data here
+                $("#loadData_").show();
+                $("#dataArea_").hide();
+                loadData();
+            } else {
+                return;
+            }
+        });
+        $("#download_").click(() => {
+            download(myFinalObject);
+
+        });
+
+    });
+
+    var startD = "";
+    var endD = "";
+
+    function validateSelection() {
+
+        if (ou == null || ou == undefined) {
+            notify("ກະລຸນາເລືອກໂຄງຮ່າງການຈັດຕັ້ງກ່ອນ!");
+            return 0;
+        }
+        startD = $("#startDate_").val();
+        // console.log("startDate=", startD);
+        if (startD == null || startD == undefined || startD == "") {
+            notify("ກະລຸນາເລືອກວັນທີ່ເລີ່ມຕົ້ນ!");
+            return 0;
+        }
+        endD = $("#endDate_").val();
+        // console.log("endDate=", endD);
+        if (endD == null || endD == undefined || endD == "") {
+            notify("ກະລຸນາເລືອກວັນທີ່ສີ້ນສຸດ!");
+            return 0;
+        }
+
+        if (endD < startD) {
+            notify("ກະລຸນາເລືອກວັນທີ່ເລີ່ມຕົ້ນກ່ອນວັນທີ່ສີ້ນສຸດ!");
+            return 0;
+        }
+
+        return 1;
+    }
+
+   
+function myTreeV1(divID, hint, selectF, obj, rootID) {
+   console.log("Building ou1...");
+    let ddata = restructureData(obj);
+    console.log("Data=>:", ddata);
+    let reduce = findById(ddata, rootID);
+     console.log("DataReduce:", reduce);
+
+    for (i = 0; i < reduce.items.length; i++) {
+        sortItems(reduce.items[i]);
+    }
+    console.log("Object for tree:", [reduce]);
+    $("#" + divID).kendoDropDownTree({
+        placeholder: hint,
+        dataSource: [reduce],
+        dataTextField: "displayName",
+        dataValueField: "id",
+        filter: "startswith",
+        height: 300,
+        //checkboxes: true,
+        select: selectF
+    }).data("kendoDropDownTree");
+}
+// Recursive function to replace 'children' with 'items'
+function replaceChildrenWithItems(node) {
+    if (node.children) {
+        node.items = node.children; // Replace 'children' with 'items'
+        delete node.children; // Optionally delete the 'children' key
+    }
+
+    // Recursively do this for any nested items
+    if (node.items) {
+        node.items.forEach(replaceChildrenWithItems);
+    }
+
+    return node;
+}
+
+function findById(arr, id) {
+    for (let item of arr) {
+        if (item.id === id) {
+            return item;
+        }
+        // If the item has a 'items' property (nested array), recurse into that array
+        if (item.items) {
+            const result = findById(item.items, id);
+            if (result) return [result];
+        }
+    }
+    return null; // Return null if no match is found
+  }
+function sortItems(node) {
+    // Sort children array by the 'name' property
+    if (node.items && Array.isArray(node.items)) {
+        //console.log("sorting");
+        node.items.sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+        // Recursively sort the children of each child node
+        node.items.forEach(child => sortItems(child));
+    }
+}
+ function restructureData(data) {
+    // Create a root array to store all ancestors' data
+    const result = [];
+  
+    // Loop through each organisation unit and categorize it under its ancestors
+    data.organisationUnits.forEach(orgUnit => {
+      addToAncestor(result, orgUnit);
+    });
+  
+    // Return the reorganized result
+    return removeDuplicateIds(result);
+  }
+  
+  function removeDuplicateIds(arr, seenIds = new Set()) {
+    return arr.filter(item => {
+        // console.log("OK112");
+      if (seenIds.has(item.id)) {
+        return false;
+      }
+      seenIds.add(item.id);
+  
+      // If the item has an 'items' property, recursively remove duplicates from it
+      if (item.items && Array.isArray(item.items)) {
+        item.items = removeDuplicateIds(item.items, seenIds);
+      }
+      return true;
+    });
+  }
+
+function removeRow(array, element) {
+    return array.filter(e => e !== element);
+}
+function openCity(evt, cityName) {
+    var i, tabcontent, tablinks;
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].style.display = "none";
+    }
+    tablinks = document.getElementsByClassName("tablinks");
+    for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].className = tablinks[i].className.replace(" active", "");
+    }
+    document.getElementById(cityName).style.display = "block";
+    //evt.currentTarget.className += " active";
+}
+
+
+function addToAncestor(ancestorPath, orgUnit) {
+    let current = ancestorPath;
+    for (const ancestor of orgUnit.ancestors) {
+      let foundAncestor = current.find(item => item.id === ancestor.id);
+      if (!foundAncestor) {
+        foundAncestor = {
+          name: ancestor.name,
+          id: ancestor.id,
+          code: ancestor.code,
+          displayName: ancestor.displayName,
+          myLevel: ancestor.level,
+          items: []  // Initialize the 'items' array
+        };
+        current.push(foundAncestor);
+      }
+      current = foundAncestor.items;
+    }
+  
+    current.push({
+      code: orgUnit.code,
+      name: orgUnit.name,
+      id: orgUnit.id,
+      displayName: orgUnit.displayName,
+      myLevel: orgUnit.level
+    });
+  
+  }
+    function loadOrg() {
+        //console.log("Ou started!");
+        let viewOU;
+        let lev;
+        let parentName;
+        let parentID;
+        $.get("../api/me.json?fields=id,dataViewOrganisationUnits[id,name,level,displayName]", (me) => {
+            viewOU = me.dataViewOrganisationUnits[0].id;
+            lev = me.dataViewOrganisationUnits[0].level;
+            parentName = me.dataViewOrganisationUnits[0].displayName;
+            parentID = me.dataViewOrganisationUnits[0].id;
+
+        }).done(() => {
+            
+            //*****Madatory fields for tree view are: name,id,displayName,code,level,ancestors[name,id,displayName,code,level] ***********
+            let url = "../api/organisationUnits.json?fields=name,id,displayName,code,level,ancestors[name,id,displayName,code,level]&filter=programs.id:eq:rWwFcYgxgzx&paging=false&filter=ancestors.id:eq:"+viewOU;
+           
+            let OUs = "";
+            //console.log("URL=" + url);
+            let loadData = $.get(url, (ous) => {
+                OUs = ous;
+                myOrgUnits = ous;
+                // console.log("My OU:", myOrgUnits);
+            });
+           
+            $.when(loadData).done(() => {
+                console.log("Building ou...");
+                myTreeV1("OUs_", "ເລືອກໂຄງຮ່າງການຈັດຕັ້ງ...", onSelect, OUs, viewOU);
+                //console.log("Ou loaded!");
+                $("#loadingM").hide();
+                $("#showUp_").show();
+            });
+
+        });
+    }
+
+    let ou = null;
+    let ouName = null;
+    function onSelect(e) {
+        var treeview = $("#OUs_").data("kendoDropDownTree");
+        var item = treeview.dataItem(e.node);
+        if (item) {
+            myoo = null;
+            ou = item.id;
+            ouName = item.displayName;
+            selOULevel = item.myVelvel;
+            // console.log("orgID:" + ou + "; ouName:" + ouName);
+
+            console.log("Selected OU:", item);
+
+            return item;
+        } else {
+            return 'nothing selected';
+        }
+    }
+
+
+
+    var selOULevel = null;
+    //DHIS2 - START
+    var myData = null;
+    function loadData() {
+
+        url = "../api/analytics/events/query/rWwFcYgxgzx.json?dimension=ou:" + ou + "&dimension=gkwf99c3LCH&dimension=IEE2BMhfoSc&dimension=IBLkiaYRRL3&dimension=tQeFLjYbqzv&dimension=DmuazFb368B&dimension=rwOWTAPaVyI&dimension=DctVCyLbbI3&dimension=A8Sk60hvKTy.DByClMZSyyO&dimension=A8Sk60hvKTy.s1XVUNjmvAV&dimension=A8Sk60hvKTy.waE57O7p1Lh&dimension=A8Sk60hvKTy.UjtGKKx3Pdn&dimension=A8Sk60hvKTy.e48FIRRqMZh&dimension=A8Sk60hvKTy.JekA893DXkf&dimension=A8Sk60hvKTy.vkafpcFCBu0&dimension=A8Sk60hvKTy.lj6PKXxm8bT&dimension=A8Sk60hvKTy.kL77jVVSDiM&dimension=A8Sk60hvKTy.MDimlAz7ff7&dimension=A8Sk60hvKTy.YD6RJJIjgui&dimension=A8Sk60hvKTy.KZClaKZUP5R&dimension=A8Sk60hvKTy.FdTgdNDpuGJ&dimension=A8Sk60hvKTy.oKMLnDSupNr&dimension=A8Sk60hvKTy.l7pUSSaIcRu&dimension=A8Sk60hvKTy.D1Iryo3QoAd&dimension=A8Sk60hvKTy.l7DyW9KxdTW&dimension=A8Sk60hvKTy.HE1J3Q2fu6g&outputType=EVENT&stage=A8Sk60hvKTy&eventDate=" + startD + "_" + endD + "&headers=ouname,gkwf99c3LCH,IEE2BMhfoSc,IBLkiaYRRL3,tQeFLjYbqzv,eventdate,DmuazFb368B,rwOWTAPaVyI,DctVCyLbbI3,A8Sk60hvKTy.DByClMZSyyO,A8Sk60hvKTy.s1XVUNjmvAV,A8Sk60hvKTy.waE57O7p1Lh,A8Sk60hvKTy.UjtGKKx3Pdn,A8Sk60hvKTy.e48FIRRqMZh,A8Sk60hvKTy.JekA893DXkf,A8Sk60hvKTy.vkafpcFCBu0,A8Sk60hvKTy.lj6PKXxm8bT,A8Sk60hvKTy.kL77jVVSDiM,A8Sk60hvKTy.MDimlAz7ff7,A8Sk60hvKTy.YD6RJJIjgui,A8Sk60hvKTy.KZClaKZUP5R,A8Sk60hvKTy.FdTgdNDpuGJ,A8Sk60hvKTy.oKMLnDSupNr,A8Sk60hvKTy.l7pUSSaIcRu,A8Sk60hvKTy.D1Iryo3QoAd,A8Sk60hvKTy.l7DyW9KxdTW,A8Sk60hvKTy.HE1J3Q2fu6g,enrollmentdate&paging=false&outputIdScheme=UID";
+
+        $.get(url, function (datas) {
+            myData = datas;
+        }).done(function () {
+
+            console.log("data loaded: ", myData);
+            buildTable(buildData(myData), 20);
+        });
+    }
+
+    var myFinalObject;
+    function buildTable(obj, itemsPerPage = 10) {
+        myFinalObject = obj;
+        console.log("final Object:", obj);
+        let currentPage = 1; // Initial page
+        const totalPages = Math.ceil(obj.length / itemsPerPage); // Calculate total pages
+
+        // Function to render the table content for the current page
+        function renderTable(page) {
+            const startIdx = (page - 1) * itemsPerPage;
+            const endIdx = Math.min(page * itemsPerPage, obj.length);
+            let tb = "<table><thead><tr><th>ລ.ດ</th><th>ລະຫັດ</th><th>ເລກລຳດັບ</th><th>ຊື່</th><th>ນາມສະກູນ</th><th>ວ.ດ.ປ ເກີດ</th><th>ເພດ</th><th>ວັນທີ່ລົງທະບຽນ</th><th>ຊື່ຜູ້ປົກຄອງ</th><th>ການຕິດຕາມການຈະເລີນເຕີບໂຕ</th><th>ແຜ່ນພູມ</th></tr></thead><tbody id='tbSearch_'>";
+
+            // Loop through the data and display rows for the current page
+            for (let i = startIdx; i < endIdx; i++) {
+                const ob = obj[i];
+                let dd = new Date(ob.dob);
+                let ddE = new Date(ob.enrollmentDate);
+                let gr = "<ol class='panel1'>";
+
+                ob.growthmornitoring.forEach((gg) => {
+                    let ddd = new Date(gg.date);
+                    gr += "<li>ວັນທີ່:" + ddd.getDate() + "/" + (ddd.getMonth() + 1) + "/" + ddd.getFullYear() + ";&nbsp;&nbsp;ສະຖານທີ່: " + gg.ou + ";&nbsp;&nbsp;ນ້ຳໜັກ/ອາຍຸ: " + gg.w_a + ";&nbsp;&nbsp;ນ້ຳໜັກ/ລວງສູງ: " + gg.w_h + ";&nbsp;&nbsp;ລວງສູງ/ອາຍຸ: " + gg.h_a + "</li>";
+                });
+
+                gr += "</ol>";
+
+                tb += "<tr>" +
+                    "<td>" + (i + 1) + "</td>" +
+                    "<td>" + ob.id + "</td>" +
+                    "<td>" + ob.serialNo + "</td>" +
+                    "<td>" + ob.firstName + "</td>" +
+                    "<td>" + ob.lastName + "</td>" +
+                    "<td>" + dd.getDate() + "/" + (dd.getMonth() + 1) + "/" + dd.getFullYear() + "</td>" +
+                    "<td>" + ob.gender + "</td>" +
+                    "<td>" + ddE.getDate() + "/" + (ddE.getMonth() + 1) + "/" + ddE.getFullYear() + "</td>" +
+                    "<td>" + ob.parentName + "</td>" +
+                    "<td>" + gr + "</td>" +
+                    "<td id='" + ob.id + "' style='text-align: center; cursor: pointer;'>&#x1F6C8;</td>" +
+                    "</tr>";
+            }
+
+            tb += "</tbody></table>";
+            $("#ind_table").empty().append(tb);
+            $("#loadData_").hide();
+            $("#dataArea_").show();
+
+            // Render pagination controls
+            renderPaginationControls(page, totalPages);
+        }
+
+        // Function to render pagination controls
+        function renderPaginationControls(page, totalPages) {
+            let paginationHtml = '<div class="label1" style="text-align: center; margin-top: 10px;">';
+
+            // Previous button
+            if (page > 1) {
+                paginationHtml += `<button class='button' onclick="changePage(${page - 1})">ໜ້າຫຼັງ</button>`;
+            } else {
+                paginationHtml += `<button class='button' disabled>ໜ້າຫຼັງ</button>`;
+            }
+
+            // Page numbers
+            paginationHtml += ` ໜ້າທີ່ ${page} ຂອງ ${totalPages} `;
+
+            // Next button
+            if (page < totalPages) {
+                paginationHtml += `<button class='button' onclick="changePage(${page + 1})">ໜ້າຕໍ່ໄປ</button>`;
+            } else {
+                paginationHtml += `<button class='button' disabled>ໜ້າຕໍ່ໄປ</button>`;
+            }
+
+            paginationHtml += '</div>';
+            $(".pagination").empty().append(paginationHtml); // Update pagination controls
+        }
+
+        // Function to handle page change
+        window.changePage = function (page) {
+            if (page >= 1 && page <= totalPages) {
+                currentPage = page;
+                renderTable(page); // Render the table for the selected page
+            }
+        };
+
+        // Initial render
+        renderTable(currentPage);
+
+        // Event listener for each row click
+        obj.forEach((ob) => {
+            $("#" + ob.id).click(function () {
+                // Handle chart and dialog for growth monitoring
+                let dataPoint_H_A = [];
+                let dataPoint_W_H = [];
+                let dataPoint_W_A = [];
+
+                ob.growthmornitoring.forEach((grow) => {
+                   dd = grow.date.split(' ')[0];
+                   ddd = dd.split('-')[2]+"-"+dd.split('-')[1]+"-"+dd.split('-')[0];
+                    dataPoint_H_A.push({ x: parseFloat(grow.age), y: parseFloat(grow.height), visitDate: ddd});
+                    dataPoint_W_H.push({ x: parseFloat(grow.height), y: parseFloat(grow.weight), ddd});
+                    dataPoint_W_A.push({ x: parseFloat(grow.age), y: parseFloat(grow.weight) , ddd});
+                });
+
+                showGrowthChart(dataPoint_H_A, dataPoint_W_H, dataPoint_W_A, ob.gender, ob.firstName + " " + ob.lastName, ob.gender, ob.id);
+               // myDialog(ob.firstName + " " + ob.lastName, ob.gender, ob.id);
+            });
+        });
+
+        // Search functionality for the table
+        searchTB("tbSearch_", "search_field");
+    }
+
+    function buildData(obj) {
+        myChil = [];
+
+        obj.rows.forEach((ob) => {
+
+            height_a = "<span style='color:red;'>ບໍ່ລະບຸ</span>";
+            height_a_V = "Unknown";
+            if (ob[12] == "1") {
+                height_a = "<span style='background-color:#28b463;'>ຂຽວ</span>";
+                height_a_V = "Green_";
+            } else if (ob[13] == "1") {
+                height_a = "<span style='background-color: yellow;'>ເຫຼືອງ(+)</span>";
+                //height_a_v = "Yellow_";
+            } else if (ob[14] == "1") {
+                height_a = "<span style='background-color: yellow;'>ເຫຼືອງ(-)</span>";
+                height_a_V = "Yellow_";
+            } else if (ob[15] == "1") {
+                height_a = "<span style='background-color: red;'>ແດງ(-)</span>";
+                height_a_V = "Red_";
+            } else if (ob[16] == "1") {
+                height_a = "<span style='background-color: red;'>ແດງ(+)</span>";
+                //  height_a_v = "Red_";
+            }
+
+            weight_h = "<span style='color:red;'>ບໍ່ລະບຸ</span>";
+            weight_h_V = "Unknown";
+            if (ob[17] == "1") {
+                weight_h = "<span style='background-color: #28b463;'>ຂຽວ</span>";
+                weight_h_V = "Green_";
+            } else if (ob[18] == "1") {
+                weight_h = "<span style='background-color: yellow;'>ເຫຼືອງ(+)</span>";
+                // weight_h_V = "Yellow_";
+            } else if (ob[19] == "1") {
+                weight_h = "<span style='background-color: yellow;'>ເຫຼືອງ(-)</span>";
+                weight_h_V = "Yellow_";
+            } else if (ob[20] == "1") {
+                weight_h = "<span style='background-color: red;'>ແດງ(+)</span>";
+                // weight_h_V = "Red_";
+            } else if (ob[21] == "1") {
+                weight_h = "<span style='background-color: red;'>ແດງ(-)</span>";
+                weight_h_V = "Red_";
+            }
+
+            weight_a = "<span style='color:red;'>ບໍ່ລະບຸ</span>";
+            weight_a_V = "<span style='color:red;'>ບໍ່ລະບຸ</span>";
+            if (ob[22] == "1") {
+                weight_a = "<span style='background-color: #28b463;'>ຂຽວ</span>"
+                weight_a_V = "Green_";
+            } else if (ob[23] == "1") {
+                weight_a = "<span style='background-color: yellow;'>ເຫຼືອງ(+)</span>"
+                // weight_a_V = "Yellow_";
+            } else if (ob[24] == "1") {
+                weight_a = "<span style='background-color: yellow;'>ເຫຼືອງ(-)</span>"
+                weight_a_V = "Yellow_";
+            } else if (ob[25] == "1") {
+                weight_a = "<span style='background-color: red;'>ແດງ(+)</span>"
+                // weight_a_V = "Red_";
+            } else if (ob[26] == "1") {
+                weight_a = "<span style='background-color: red;'>ແດງ(-)</span>"
+                weight_a_V = "Red_";
+            }
+
+            myChil.push(
+                {
+                    id: ob[1],
+                    serialNo: ob[7],
+                    firstName: ob[2],
+                    lastName: ob[3],
+                    dob: ob[4],
+                    gender: ob[6],
+                    enrollmentDate: ob[27],
+                    parentName: ob[8],
+                    growthmornitoring: [
+                        {
+                            date: ob[5],
+                            ou: ob[0],
+                            height: ob[9],
+                            age: ob[11],
+                            weight: ob[10],
+                            w_a: weight_a,
+                            w_h: weight_h,
+                            h_a: height_a,
+
+                            w_a_v: weight_a_V,
+                            w_h_v: weight_h_V,
+                            h_a_v: height_a_V
+                        }
+                    ],
+                }
+            );
+        });
+        // console.log("before Merg:", myChil);
+
+        //**********ລວມ myChil ມາເປັນຄົນ (ບໍ່ແມ່ນເທື່ອຄົນ) *********
+        const childMap = {};
+
+        // Loop through each child in the `myChil` array
+        myChil.forEach((child) => {
+            if (childMap[child.id]) {
+                // If child already exists in the map, merge growth monitoring
+                childMap[child.id].growthmornitoring.push(...child.growthmornitoring);
+                // Sort the merged growth monitoring data by date
+                childMap[child.id].growthmornitoring.sort((a, b) => new Date(a.date) - new Date(b.date));
+            } else {
+                // If child does not exist in the map, add it to the map
+                childMap[child.id] = { ...child };
+            }
+        });
+
+        // Convert the hashmap values back to an array
+        myChil = Object.values(childMap);
+
+        ////*************** ນັບຈຳນວນທີ່ຂາດສານອາຫານຕາມ ແຕ່ລະປະເພດຄື: ນ້ຳໜັກ/ອາຍຸ, ນ້ຳໜັກ/ລວງສູງ ແລະ ລວງສູງ/ອາຍຸ ************
+        totalMalNtutrition = 0;
+        totalMalNtutrition_W_A = 0;
+        totalMalNtutrition_H_A = 0;
+        totalMalNtutrition_W_H = 0;
+
+        myChil.forEach((ob) => {
+            index = 0;
+            ob.growthmornitoring.forEach((grow) => {
+
+                if (index == (ob.growthmornitoring.length - 1)) {
+
+                    //***ເດັກຂາດສານອາຫານແມ່ນຜູ້ທີ່ມີ ນ້ຳໜັກ/ອາຍຸ, ລວງສູງ/ອາຍຸ ແລະ ນ້ຳໜັກ/ລວງສູງ ມີຄ່າ >=-2SD (ໝາຍເຫດ: ນ້ຳໜັກ/ລວງສູງ ທີ່ເປັນ ສີເຫຼືອງ ແມ່ນ -1SD ບໍ່ນັບເຂົ້າໃນນີ້)***
+                    if (grow.w_a_v == "Red_" || grow.w_a_v == "Yellow_" || grow.h_a_v == "Red_" || grow.h_a_v == "Yellow_" || grow.w_h_v == "Red_") {
+                        totalMalNtutrition++;
+                    }
+                    if (grow.w_a_v == "Red_" || grow.w_a_v == "Yellow_") {
+                        totalMalNtutrition_W_A++;
+                    }
+                    if (grow.h_a_v == "Red_" || grow.h_a_v == "Yellow_") {
+                        totalMalNtutrition_H_A++;
+                    }
+                    if (grow.w_h_v == "Red_") {
+                        totalMalNtutrition_W_H++;
+                    }
+                }
+                index++;
+            });
+
+        });
+        // console.log("after Merg:", myChil);
+        //% ເດັກທີ່ຂາດສານອາຫານ
+
+
+        $("#totalVisit_").empty().append(addCommas(checkNumber(myChil.length)));
+
+        $("#totalMalnutrition_").empty().append(addCommas(checkNumber(totalMalNtutrition)));
+
+        $("#totalMalnutritionP_").empty().append(((totalMalNtutrition / myChil.length) * 100).toFixed(2) + "%");
+
+
+        //ນ້ຳໜັກ/ອາຍຸ
+        $("#totalW_A_").empty().append(addCommas(checkNumber(totalMalNtutrition_W_A)) + " (" + ((totalMalNtutrition_W_A / myChil.length) * 100).toFixed(2) + "%)");
+
+        // $("#totalW_A_P").empty().append("<div style='font-size: 30px;'>%: " + ((totalMalNtutrition_W_A / myChil.length) * 100).toFixed(2) + "%");
+        //ລວງສູງ/ອາຍຸ
+        $("#totalH_A_").empty().append(addCommas(checkNumber(totalMalNtutrition_H_A)) + " (" + ((totalMalNtutrition_H_A / myChil.length) * 100).toFixed(2) + "%)");
+        // $("#totalH_A_P").empty().append("<div style='font-size: 30px;'>%: " + ((totalMalNtutrition_H_A / myChil.length) * 100).toFixed(2) + "%");
+
+        //ນ້ຳໜັກ/ລວງສູງ
+        $("#totalW_H_").empty().append(addCommas(checkNumber(totalMalNtutrition_W_H)) + " (" + ((totalMalNtutrition_W_H / myChil.length) * 100).toFixed(2) + "%)");
+        // $("#totalW_H_P").empty().append("<div style='font-size: 30px;'>%: " + ((totalMalNtutrition_W_H / myChil.length) * 100).toFixed(2) + "%");
+
+        return myChil;
+
+    }
+
+    function onClick() {
+        $("#aggregate_").click(function () {
+            //console.log("OOO");
+            openCity(this, 'agg_');
+            $("#aggregate_").css({ "border-bottom": "2px solid #0cfa71" });
+            $("#indidual_").css({ "border-bottom": "0px solid #0cfa71" });
+            $("#indidual_newCase").css({ "border-bottom": "0px solid #0cfa71" });
+        });
+        $("#indidual_").click(function () {
+            openCity(this, 'ind_');
+            $("#indidual_").css({ "border-bottom": "2px solid #0cfa71" });
+            $("#aggregate_").css({ "border-bottom": "0px solid #0cfa71" });
+            $("#indidual_newCase").css({ "border-bottom": "0px solid #0cfa71" });
+        });
+
+    }
+
+</script>
+
+<div id="showMyChart">
+    <div id="chartContainer1" style="width: 90%; height: 98%; display: inline-block; margin:20px;"></div>
+    <p class="hr1"></p>
+    <div id="chartContainer2" style="width: 90%; height: 90%; display: inline-block; margin:20px;"></div>
+    <p class="hr1"></p>
+    <div id="chartContainer3" style="width: 90%; height: 90%; display: inline-block; margin:20px;"></div>
+
+</div>
+
+<p id="notify_"></p>
+
+<center id="showUp_" class="top" style="display: none;">
+    <input id="OUs_" class="button" style="width: 230px;" /> ::
+    <!-- <label for="startDate_" class="laoFont"></label> -->
+    <input id="startDate_" title="ເລີ່ມຈາກວັນທີ່ (ດ/ວ/ປ)" type="date" class="button" style="width: 150px;" />
+    <!-- <label for="endDate_" class="laoFont">ສີ້ນສຸດວັນທີ່:</label> -->
+    <input id="endDate_" title="ສີ້ນສຸດວັນທີ່ (ດ/ວ/ປ)" type="date" class="button myDate" style="width: 150px;" /> ::
+    <button id="getData_" class="button" style="width: 150px; ">ເອົາຂໍ້ມູນ</button> ::
+    <button id="download_" class="button" style="width: 150px; ">ດາວໂຫຼດເປັນ excel</button>
+    <!-- <p class="hr1"></p> -->
+
+</center>
+<center>
+
+</center>
+<div id="dataArea_" style="display: none; margin-top: -20px;">
+    <p class="tab">
+        <button class="tablinks" id="aggregate_" style='border-bottom: 2px solid #0cfa71'>ສັງລວມຕົວເລກລາຍງານ</button>
+        <button class="tablinks" id="indidual_">ຕິດຕາມເປັນຄົນ</button>
+        <!-- <button class="tablinks" id="indidual_newCase">ຕິດຕາມເປັນຄົນ (ກໍລະນີໃໝ່)</button> -->
+    </p>
+    <center id="agg_" class="tabcontent" style="display: block;">
+
+
+        <div class="laoFont panel" style="padding: 15px;">
+            ຈ.ນ ເດັກທີ່ມາຮັບບໍລິການ
+            <div class='dropdownShow'><span>?</span>
+                <div class='dropdownShow-content' style='width: 180px; overflow: scroll;'>
+                    ແມ່ນຈຳນວນເດັກທີ່ມາຮັບບໍລິການວັດແທກນ້ຳໜັກ ແລະ ລວງສູງທັງໝົດ (ຕົວເລກດັ່ງກ່າວແມ່ນ ຈຳນວນເດັກ -
+                    ບໍ່ແມ່ນເທື່ອເດັກ)
+                </div>
+            </div>
+            <div id="totalVisit_" style='font-size: 30px;'></div>
+
+        </div>
+
+
+
+        <div class="laoFont panel" style="padding: 15px; width: 310px;">
+            ຈ.ນ ເດັກທີ່ຂາດສານອາຫານ (ສີເຫຼືອງ ແລະ ແດງ)
+            <div class='dropdownShow'><span>?</span>
+                <div class='dropdownShow-content' style='width: 180px; height: 180px; overflow: scroll;'>
+                    ແມ່ນຈ.ນ ເດັກທີ່ຂາດສານອາຫານ ທີ່ຄ່າເປັນສີເຫຼືອງ ແລະ ແດງ
+                    ຂອງຈຳນວນເດັກທີ່ມາຮັບບໍລິການທັງໝົດ (ຕົວເລກດັ່ງກ່າວແມ່ນ ຈຳນວນເດັກ - ບໍ່ແມ່ນເທື່ອເດັກ)<br><strong>ການຄິດໄລ່:</strong> ແມ່ນການນັບເອົາເດັກທີ່ມີຄ່າເປັນສີເຫຼືອງ ແລະ ແດງ ຂອງການມາຮັບການບໍລິການຄັ້ງສຸດທ້າຍ
+                </div>
+            </div>
+            <div id="totalMalnutrition_" style='font-size: 30px;'></div>
+
+        </div>
+
+
+
+        <div class="laoFont panel" style="padding: 15px;">
+            % ເດັກທີ່ຂາດສານອາຫານ
+            <div class='dropdownShow'><span>?</span>
+                <div class='dropdownShow-content' style='width: 180px; overflow: scroll;'>
+                    ແມ່ນສ່ວນຮ້ອຍຂອງເດັກທີ່ຂາດສານອາຫານ. ຄຳນວນໄດ້ຈາກ: (ຈ.ນ ເດັກທີ່ຂາດສານອາຫານ/ຈ.ນ ເດັກທີ່ມາຮັບບໍລິການ)
+                </div>
+            </div>
+            <div id="totalMalnutritionP_" style='font-size: 30px;'></div>
+
+        </div>
+
+        <p class="hr1"></p>
+
+        <div class="laoFont panel" style="padding: 15px;">
+            ນ້ຳໜັກ/ອາຍຸ (ນ້ຳໜັກບໍ່ໄດ້ມາດຕະຖານ)
+            <div class='dropdownShow'><span>?</span>
+                <div class='dropdownShow-content' style='width: 180px; overflow: scroll;'>
+                    ແມ່ນຈຳນວນເດັກທີ່ນ້ຳໜັກຫຼຸດ ຫຼື ເປັນສີເຫຼືອງ ແລະ ແດງ
+                    (ສ່ວນຮ້ອຍຂອງເດັກທີ່ນ້ຳໜັກຫຼຸດ). ຄຳນວນໄດ້ຈາກ (ຈຳນວນເດັກທີ່ນ້ຳໜັກຫຼຸດ/ຈ.ນ ເດັກທີ່ມາຮັບບໍລິການ)<br><strong>ການຄິດໄລ່:</strong> ແມ່ນການນັບເອົາເດັກທີ່ມີຄ່າເປັນສີເຫຼືອງ ແລະ ແດງ ຂອງການມາຮັບການບໍລິການຄັ້ງສຸດທ້າຍ
+                </div>
+            </div>
+            <div id="totalW_A_" style='font-size: 30px;'></div>
+
+        </div>
+
+        <div class="laoFont panel" style="padding: 15px;">
+            ລວງສູງ/ອາຍຸ (ລວງສູງບໍ່ໄດ້ມາດຕະຖານ)
+            <div class='dropdownShow'><span>?</span>
+                <div class='dropdownShow-content' style='width: 180px; overflow: scroll;'>
+                    ແມ່ນຈຳນວນເດັກທີ່ລວງສູງບໍ່ໄດ້ມາດຕະຖານ (ເດັກເຕ້ຍ) ຫຼື ຄ່າມາດຕະຖານແມ່ນ ສີເຫຼືອງ ແລະ ແດງ
+                    (ສ່ວນຮ້ອຍຂອງເດັກທີ່ລວງສູງບໍ່ໄດ້ມາດຕະຖານ). ຄຳນວນໄດ້ຈາກ (ຈຳນວນເດັກທີ່ລວງສູງບໍ່ໄດ້ມາດຕະຖານ/ຈ.ນ
+                    ເດັກທີ່ມາຮັບບໍລິການ)<br><strong>ການຄິດໄລ່:</strong> ແມ່ນການນັບເອົາເດັກທີ່ມີຄ່າເປັນສີເຫຼືອງ ແລະ ແດງ ຂອງການມາຮັບການບໍລິການຄັ້ງສຸດທ້າຍ
+                </div>
+            </div>
+            <div id="totalH_A_" style='font-size: 30px;'></div>
+
+        </div>
+
+        <div class="laoFont panel" style="padding: 15px;">
+            ນ້ຳໜັກ/ລວງສູງ (ແດງ)
+            <div class='dropdownShow'><span>?</span>
+                <div class='dropdownShow-content' style='width: 180px; overflow: scroll;'>
+                    ແມ່ນຈຳນວນເດັກທີ່ນ້ຳໜັກຕໍ່ລວງສູງມີຄ່າເປັນແດງ
+                    (ສ່ວນຮ້ອຍຂອງເດັກທີ່ນ້ຳໜັກຕໍ່ລວງສູງທີ່ມີຄ່າມາດຕະຖານແມ່ນ ແດງ). ຄຳນວນໄດ້ຈາກ
+                    (ຈຳນວນເດັກທີ່ມີນ້ຳໜັກຕໍ່ລວງສູງທີ່ມີຄ່າແມ່ນແດງ/ຈ.ນ ເດັກທີ່ມາຮັບບໍລິການ) <br><strong>ການຄິດໄລ່:</strong> ແມ່ນການນັບເອົາເດັກທີ່ມີຄ່າເປັນສີແດງ ຂອງການມາຮັບການບໍລິການຄັ້ງສຸດທ້າຍ
+                </div>
+            </div>
+            <div id="totalW_H_" style='font-size: 30px;'></div>
+
+        </div>
+
+    </center>
+    <div id="ind_" class="tabcontent">
+        <center><input type="text" id="search_field" class="input_ laoFont" placeholder="ຄົ້ນຫາຂໍ້ມູນໃນຕາຕະລາງ"
+                style="margin-top: 0px;"></center>
+        <p id="ind_table"></p>
+        <center class="pagination"></center>
+        <!-- <button id="loadTableButton">Load Table</button> -->
+    </div>
+    <!-- <div id="ind_newCase" class="tabcontent">
+        tab3
+    </div> -->
+</div>
+<p class="loader" id="loadData_" style="display: none;">
+    <span>ກຳ</span>
+    <span>ລັງ</span>
+    <span>ໂຫຼດ</span>
+    <span>ຂໍ້</span>
+    <span>ມູນ</span>
+    <span>.</span>
+    <span>.</span>
+    <span>.</span>
+</p>
+
+<p class="loader" id="loadingM" style="display: none;">
+    <span>ກຳ</span>
+    <span>ລັງ</span>
+    <span>ໂຫຼດ</span>
+    <span>ໂຄງ</span>
+    <span>ຮ່າງ</span>
+    <span>ການ</span>
+    <span>ຈັດ</span>
+    <span>ຕັ້ງ</span>
+    <span>.</span>
+    <span>.</span>
+    <span>.</span>
+</p>
